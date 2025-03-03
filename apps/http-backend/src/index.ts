@@ -26,6 +26,7 @@ app.post("/signup", async (req, res) => {
         name: data.data.name,
         email: data.data.username,
         password: data.data.password,
+        // TODO: hashed the password
       },
     });
     //db call
@@ -35,7 +36,7 @@ app.post("/signup", async (req, res) => {
   }
 });
 
-app.post("/signin", (req, res) => {
+app.post("/signin", async (req, res) => {
   const data = SignInSchema.safeParse(req.body);
   if (!data.success) {
     res.json({
@@ -44,11 +45,25 @@ app.post("/signin", (req, res) => {
     return;
   }
 
-  const userId = 1;
-  const token = jwt.sign({ userId }, JWT_SECRET);
+  //TODO: compare the hashed password here
+  const user = await prismaClient.user.findFirst({
+    where: {
+      email: data.data.username,
+      password: data.data.password,
+    },
+  });
+
+  if(!user){
+    res.status(403).json({
+      message: "user is not authorised"
+    })
+    return
+  }
+
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET);
   res.json({ token });
 });
-app.post("/room", middleware, (req, res) => {
+app.post("/room", middleware, async (req, res) => {
   const data = CreateRoomSchema.safeParse(req.body);
   if (!data.success) {
     res.json({
@@ -56,8 +71,23 @@ app.post("/room", middleware, (req, res) => {
     });
     return;
   }
+  //@ts-ignore: TODO: fix this
+  const userId = req.userId
 
-  res.json({ roomId: 123 });
+  try {
+    const room = await prismaClient.room.create({
+      data:{
+        slug: data.data.name,
+        adminId: userId 
+      }  
+    })
+  
+    res.json({ roomId: room.id });
+  } catch (error) {
+    res.status(411).json({
+      message: "room already exist with this name"
+    })
+  }
 });
 
 app.listen(3001);
