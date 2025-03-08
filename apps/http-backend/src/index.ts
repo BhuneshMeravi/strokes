@@ -53,11 +53,11 @@ app.post("/signin", async (req, res) => {
     },
   });
 
-  if(!user){
+  if (!user) {
     res.status(403).json({
-      message: "user is not authorised"
-    })
-    return
+      message: "user is not authorised",
+    });
+    return;
   }
 
   const token = jwt.sign({ userId: user.id }, JWT_SECRET);
@@ -73,36 +73,53 @@ app.post("/room", middleware, async (req, res) => {
     return;
   }
   //@ts-ignore: TODO: fix this
-  const userId = req.userId
+  const userId = req.userId;
 
   try {
     const room = await prismaClient.room.create({
-      data:{
+      data: {
         slug: data.data.name,
-        adminId: userId 
-      }  
-    })
-  
+        adminId: userId,
+      },
+    });
+
     res.json({ roomId: room.id });
   } catch (error) {
     res.status(411).json({
-      message: "room already exist with this name"
-    })
+      message: "room already exist with this name",
+    });
   }
 });
 
 app.get("/chats/:roomId", async (req, res) => {
-  const roomId = Number(req.params.roomId)
-  const messages = await prismaClient.room.findMany({
-    where: {
-      id: roomId,
-    },
-    take: 50
-  })
+  try {
+    const roomId = Number(req.params.roomId);
+    const messages = await prismaClient.room.findMany({
+      where: {
+        id: roomId,
+      },
+      take: 50,
+    });
 
-  res.json({
-    messages
-  })
-})
+    res.json({
+      messages,
+    });
+  } catch (error) {
+    res.json({
+      messages: [],
+    });
+  }
+});
+
+app.get("/room/:slug", async (req, res) => {
+  const slug = req.params.slug;
+  const room = await prismaClient.room.findFirst({
+    where: {
+      slug,
+    },
+  });
+
+  res.json({ room });
+});
 
 app.listen(3001);
