@@ -50,6 +50,7 @@ wss.on("connection", function connection(ws, request) {
     rooms: [],
     ws,
   });
+
   ws.on("message", async function message(data) {
     const parsedData = JSON.parse(data as unknown as string);
 
@@ -67,28 +68,39 @@ wss.on("connection", function connection(ws, request) {
     }
 
     if (parsedData.type === "chat") {
-      const roomId = parsedData.roomId;
-      const message = parsedData.message;
+      try {
+        const roomId = parseInt(parsedData.roomId,10);
+        const message = parsedData.message;
 
-      await prismaClient.chat.create({
-        data: {
-          roomId,
-          message,
-          userId
-        }
-      })
+        await prismaClient.chat.create({
+          data: {
+            roomId: Number(roomId),
+            message,
+            userId,
+          },
+        });
 
-      users.forEach((user) => {
-        if (user.rooms.includes(roomId)) {
-          user.ws.send(
-            JSON.stringify({
-              type: "chat",
-              message: message,
-              roomId,
-            })
-          );
-        }
-      });
+        users.forEach((user) => {
+          if (user.rooms.includes(String(roomId))) {
+            user.ws.send(
+              JSON.stringify({
+                type: "chat",
+                message: message,
+                roomId,
+              })
+            );
+          }
+        });
+      } catch (error) {
+        console.error("Error processing chat message:", error);
+        // Optionally send an error message back to the client
+        ws.send(
+          JSON.stringify({
+            type: "error",
+            message: "Failed to process chat message",
+          })
+        );
+      }
     }
   });
 });
